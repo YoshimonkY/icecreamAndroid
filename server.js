@@ -80,6 +80,20 @@ app.get("/all-orders", (req, res) => {
         if (r.flavor) orders[r.id].items.push({ flavor: r.flavor, quantity: r.quantity, price: r.price });
     });
 
+    // If no items from DB, parse from ticket
+    Object.values(orders).forEach(order => {
+        if (order.items.length === 0 && order.ticket) {
+            const lines = order.ticket.split('\n');
+            lines.forEach(line => {
+                const match = line.match(/^(.+?)\s+(\d+)\s+-\s+-\s+-\s+\$(\d+\.\d{2})$/);
+                if (match) {
+                    const [, flavor, quantity, price] = match;
+                    order.items.push({ flavor: flavor.trim(), quantity: parseInt(quantity), price: parseFloat(price) });
+                }
+            });
+        }
+    });
+
     res.json(Object.values(orders));
 });
 
