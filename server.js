@@ -61,6 +61,29 @@ app.get("/orders", (req, res) => {
 });
 
 // ======================
+//  ALL ORDERS
+// ======================
+app.get("/all-orders", (req, res) => {
+    const limit = parseInt(req.query.limit) || 20;
+    const orderDir = req.query.order === "ASC" ? "ASC" : "DESC";
+    const rows = all(`
+    SELECT o.id, o.timestamp, o.total, o.ticket, oi.flavor, oi.quantity, oi.price
+    FROM orders o
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    ORDER BY o.id ${orderDir}
+    LIMIT ?;
+  `, [limit]);
+
+    const orders = {};
+    rows.forEach(r => {
+        if (!orders[r.id]) orders[r.id] = { id: r.id, timestamp: r.timestamp, total: r.total, ticket: r.ticket, items: [] };
+        if (r.flavor) orders[r.id].items.push({ flavor: r.flavor, quantity: r.quantity, price: r.price });
+    });
+
+    res.json(Object.values(orders));
+});
+
+// ======================
 //  FLAVORS
 // ======================
 app.get("/flavors", (req, res) => {
