@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 5px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgb(122, 122, 122);
+            border-radius: 5px;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 7.5px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 2.5px;
+            text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .store-selector {
+            background: #f8f9fa;
+            padding: 5px 7.5px;
+            border-bottom: 0.5px solid #e9ecef;
+            text-align: center;
+        }
+
+        .store-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
+            flex-wrap: wrap;
+        }
+
+        .store-btn {
+            padding: 3px 10px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            color: #667eea;
+        }
+
+        .store-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .store-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 7.5px;
+            background: #f8f9fa;
+        }
+
+        .btn {
+            padding: 3px 6px;
+            border: none;
+            border-radius: 2.5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-0.5px);
+            box-shadow: 0 1.25px 3.75px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffecd2, #fcb69f);
+            color: #2d3436;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-0.5px);
+            box-shadow: 0 1.25px 3.75px rgba(252, 182, 159, 0.4);
+        }
+
+        .btn-update {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            color: white;
+            padding: 3.75px 10px;
+            font-size: 1.1em;
+            margin: 5px auto;
+            display: block;
+        }
+
+        .btn-update:hover {
+            transform: translateY(-0.5px);
+            box-shadow: 0 1.25px 3.75px rgba(0, 184, 148, 0.4);
+        }
+
+        .inventory-table {
+            padding: 0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 5px 7.5px;
+        }
+
+        .flavors-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgb(180, 180, 180);
+            box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.1);
+            border-radius: 2.5px;
+            overflow: hidden;
+        }
+
+        .flavors-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 3.75px 3px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .flavors-table td {
+            padding: 3px;
+            border-bottom: 0.25px solid #e9ecef;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .flavors-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .flavors-table tr.selected {
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107 !important;
+        }
+
+        .flavors-table tr.selected:hover {
+            background: #fff3cd !important;
+        }
+
+        .index-cell {
+            font-weight: bold;
+            color: #667eea;
+            width: 50px;
+        }
+
+        .flavor-name {
+            font-weight: 600;
+            color: #2d3436;
+            font-size: 0.95em;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .price-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .price-display {
+            color: #636e72;
+            font-size: 0.95em;
+            cursor: pointer;
+        }
+
+        .price-display:hover {
+            color: #667eea;
+        }
+
+        .price-input {
+            padding: 6px 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9em;
+            width: 70px;
+            transition: all 0.3s ease;
+        }
+
+        .price-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-save-price {
+            padding: 2px 6px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save-price:hover {
+            background: #218838;
+        }
+
+        .btn-delete {
+            padding: 2px 6px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .checkbox-cell {
+            text-align: center;
+        }
+
+        .flavor-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .add-flavor-section {
+            background: #f8f9fa;
+            padding: 7.5px;
+            border-top: 0.5px solid #e9ecef;
+        }
+
+        .add-flavor-form {
+            display: flex;
+            gap: 3.75px;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            flex-direction: row;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 2px;
+            font-weight: 600;
+            color: #2d3436;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 3px 4px;
+            border: 0.5px solid #ddd;
+            border-radius: 2.5px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.75px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-add {
+            padding: 3px 7.5px;
+            background: linear-gradient(135deg, #00b894, #00a085);
+            color: white;
+            border: none;
+            border-radius: 2.5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            align-self: flex-end;
+        }
+
+        .btn-add:hover {
+            transform: translateY(-0.5px);
+            box-shadow: 0 1.25px 3.75px rgba(0, 184, 148, 0.4);
+        }
+
+        .stats {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 5px 7.5px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #636e72;
+        }
+
+        .error {
+            background: #ffeaa7;
+            color: #d63031;
+            padding: 3.75px 7.5px;
+            border-radius: 2.5px;
+            margin: 5px 7.5px;
+            border-left: 1.25px solid #fdcb6e;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 2.5px;
+                border-radius: 3.75px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .store-buttons {
+                flex-direction: row;
+                gap: 10px;
+                align-items: center;
+            }
+
+            .store-btn {
+                width: 100%;
+                max-width: 150px;
+                max-height: 35px;
+            }
+
+            .nav-buttons {
+                flex-direction: row;
+                gap: 3.75px;
+                align-items: center;
+            }
+
+            .nav-buttons .btn {
+                width: 100%;
+                max-width: 140px;
+            }
+
+            .table-container {
+                margin: 5px 3.75px;
+            }
+
+            .flavors-table {
+                font-size: 0.9em;
+            }
+
+            .flavors-table th,
+            .flavors-table td {
+                padding: 2px 1.5px;
+            }
+
+            .add-flavor-form {
+                flex-direction: column;
+            }
+
+            .btn-add {
+                width: 100%;
+            }
+
+            .stats {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>🍦 Inventario 🍦 </h3>
+        </div>
+
+        <div class="nav-buttons">
+            <a href="/puesto2.html" class="btn btn-secondary">← Tomar Órden</a>
+            <a href="/all-orders.html" class="btn btn-secondary"> 🧾 Todas →</a>
+        </div>
+        <div class="store-selector">
+            <p style="text-align: center; margin-bottom: 10px;">Agregar sabores a:</p>
+            <div class="store-buttons">
+                <button class="store-btn" onclick="addFlavorsToStore('puesto2')">🥤 Imán</button>
+                <button class="store-btn" onclick="addFlavorsToStore('puesto')">🥤 Tienda 2</button>
+            </div>
+        </div>
+
+        <div class="inventory-table">
+            <div class="table-container">
+                <table class="flavors-table" id="flavors-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Sabor</th>
+                            <th style="width: 120px;">Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="flavors-tbody">
+                        <tr>
+                            <td colspan="3" class="loading" id="loading">Cargando sabores...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 10px;">
+            <button class="btn-delete" onclick="deleteSelectedFlavors()">🗑️ Eliminar Sabores Seleccionados</button>
+        </div>
+
+        <div class="add-flavor-section">
+            <form class="add-flavor-form" id="add-flavor-form">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="new-flavor-name" required
+                        placeholder="Introducir nuevo sabor">
+
+                    <input type="number" class="form-input" id="new-flavor-price" step="0.01" min="0" required
+                        placeholder="Introducir precio $">
+                </div>
+                <button type="submit" class="btn-add">Agregar</button>
+            </form>
+        </div>
+
+        <div class="nav-buttons">
+            <a href="/puesto2.html" class="btn btn-secondary">← Tomar Órden</a>
+            <a href="/all-orders.html" class="btn btn-secondary"> Historial →</a>
+        </div>
+        <div id="error-message" class="error" style="display: none;"></div>
+
+
+    </div>
+
+    <script>
+        let currentStore = 'puesto2';
+        let allFlavors = [];
+        let storeFlavors = {};
+        let selectedFlavors = new Set();
+
+        // Initialize the page
+        async function initializePage() {
+            await loadAllFlavors();
+            await loadStoreFlavors(currentStore);
+            setupEventListeners();
+        }
+
+        // Load all flavors from master list
+        async function loadAllFlavors() {
+            try {
+                const response = await fetch('/flavors');
+                allFlavors = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(allFlavors.error || 'Error loading flavors');
+                }
+            } catch (error) {
+                showError('Error cargando sabores: ' + error.message);
+            }
+        }
+
+        // Load store-specific flavor assignments
+        async function loadStoreFlavors(store) {
+            try {
+                const response = await fetch(`/store-flavors/${store}`);
+                const flavors = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(flavors.error || 'Error loading store flavors');
+                }
+
+                // Create a map of flavor_id -> active status for this store
+                storeFlavors = {};
+                flavors.forEach(flavor => {
+                    storeFlavors[flavor.id] = {
+                        id: flavor.id,
+                        name: flavor.name,
+                        price: flavor.price,
+                        active: flavor.store_active !== null ? flavor.store_active : false
+                    };
+                });
+
+                displayFlavors();
+                updateStats();
+            } catch (error) {
+                showError('Error cargando sabores de tienda: ' + error.message);
+            }
+        }
+
+        // Display flavors in table format
+        function displayFlavors() {
+            const tbody = document.getElementById('flavors-tbody');
+            const loading = document.getElementById('loading');
+
+            if (allFlavors.length === 0) {
+                if (loading) loading.style.display = 'none';
+                tbody.innerHTML = '<tr><td colspan="3" class="loading">No hay conexión con la base de datos</td></tr>';
+                return;
+            }
+
+            if (loading) loading.style.display = 'none';
+
+            tbody.innerHTML = allFlavors.map((flavor, index) => {
+                const isSelected = selectedFlavors.has(flavor.id);
+
+                return `
+                    <tr data-flavor-id="${flavor.id}" class="${isSelected ? 'selected' : ''}">
+                        <td class="index-cell">${index + 1}</td>
+                        <td class="flavor-name" onclick="selectFlavor(${flavor.id})">${flavor.name}</td>
+                        <td class="price-cell">
+                            <span class="price-display" onclick="editPrice(this, ${flavor.id})">$${flavor.price.toFixed(2)}</span>
+                            <input type="number" class="price-input"
+                                   value="${flavor.price}"
+                                   step="0.01" min="0"
+                                   style="display: none;"
+                                   onblur="savePrice(this, ${flavor.id})"
+                                   onkeypress="handlePriceKeyPress(event, this, ${flavor.id})">
+                            <button class="btn-save-price" onclick="savePrice(this.previousElementSibling, ${flavor.id})" style="display: none;">💾</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Select flavor for adding to stores
+        function selectFlavor(flavorId) {
+            if (selectedFlavors.has(flavorId)) {
+                selectedFlavors.delete(flavorId);
+            } else {
+                selectedFlavors.add(flavorId);
+            }
+            displayFlavors();
+        }
+
+        // Edit price inline
+        function editPrice(spanElement, flavorId) {
+            const priceInput = spanElement.nextElementSibling;
+            const saveBtn = priceInput.nextElementSibling;
+
+            spanElement.style.display = 'none';
+            priceInput.style.display = 'inline-block';
+            saveBtn.style.display = 'inline-block';
+            priceInput.focus();
+            priceInput.select();
+        }
+
+        // Save price change
+        async function savePrice(inputElement, flavorId) {
+            const spanElement = inputElement.previousElementSibling;
+            const saveBtn = inputElement.nextElementSibling;
+            const newPrice = parseFloat(inputElement.value);
+
+            if (isNaN(newPrice) || newPrice < 0) {
+                showError('Precio inválido');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/flavors/${flavorId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ price: newPrice })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error updating price');
+                }
+
+                // Update the display
+                spanElement.textContent = `$${newPrice.toFixed(2)}`;
+                spanElement.style.display = 'inline';
+                inputElement.style.display = 'none';
+                saveBtn.style.display = 'none';
+
+                // Reload data to reflect changes
+                await loadAllFlavors();
+                await loadStoreFlavors(currentStore);
+
+                showSuccess('Precio actualizado correctamente');
+            } catch (error) {
+                showError('Error actualizando precio: ' + error.message);
+            }
+        }
+
+        // Handle enter key in price input
+        function handlePriceKeyPress(event, inputElement, flavorId) {
+            if (event.key === 'Enter') {
+                savePrice(inputElement, flavorId);
+            }
+        }
+
+        // Delete flavor
+        async function deleteFlavor(flavorId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este sabor?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/flavors/${flavorId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error deleting flavor');
+                }
+
+                // Reload data to reflect changes
+                await loadAllFlavors();
+                await loadStoreFlavors(currentStore);
+
+                showSuccess('Sabor eliminado correctamente');
+            } catch (error) {
+                showError('Error eliminando sabor: ' + error.message);
+            }
+
+        }
+
+        // Delete selected flavors
+        async function deleteSelectedFlavors() {
+            if (selectedFlavors.size === 0) {
+                showError('Selecciona al menos un sabor para eliminar');
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de que quieres eliminar ${selectedFlavors.size} sabor(es)?`)) {
+                return;
+            }
+
+            try {
+                const deletePromises = Array.from(selectedFlavors).map(flavorId =>
+                    fetch(`/flavors/${flavorId}`, { method: 'DELETE' })
+                );
+
+                const results = await Promise.all(deletePromises);
+                const failedDeletes = results.filter(r => !r.ok);
+
+                if (failedDeletes.length > 0) {
+                    throw new Error('Error eliminando algunos sabores');
+                }
+
+                selectedFlavors.clear();
+                await loadAllFlavors();
+                await loadStoreFlavors(currentStore);
+                showSuccess('Sabores eliminados correctamente');
+            } catch (error) {
+                showError('Error eliminando sabores: ' + error.message);
+            }
+        }
+
+        // Add selected flavors to a store
+        async function addFlavorsToStore(store) {
+            if (selectedFlavors.size === 0) {
+                showError('Selecciona al menos un sabor para agregar a la tienda');
+                return;
+            }
+
+            try {
+                const flavorAssignments = Array.from(selectedFlavors).map(flavorId => ({
+                    flavorId: parseInt(flavorId),
+                    active: true
+                }));
+
+                const response = await fetch(`/store-flavors/${store}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ flavorAssignments })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error adding flavors to store');
+                }
+
+                const count = selectedFlavors.size;
+                selectedFlavors.clear();
+                displayFlavors();
+                alert(`${count} nuevos sabores agregados correctamente a ${store === 'puesto2' ? 'Imán' : 'Tienda 2'}`);
+            } catch (error) {
+                showError('Error agregando sabores: ' + error.message);
+            }
+        }
+
+        // Add new flavor to master list
+        async function addFlavor(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('new-flavor-name').value.trim();
+            const price = parseFloat(document.getElementById('new-flavor-price').value);
+
+            if (!name || !price) {
+                showError('Por favor completa todos los campos');
+                return;
+            }
+
+            try {
+                const response = await fetch('/flavors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, price })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error adding flavor');
+                }
+
+                // Clear form
+                document.getElementById('new-flavor-name').value = '';
+                document.getElementById('new-flavor-price').value = '';
+
+                // Reload all flavors and current store
+                await loadAllFlavors();
+                await loadStoreFlavors(currentStore);
+
+                showSuccess('Sabor agregado correctamente');
+            } catch (error) {
+                showError('Error agregando sabor: ' + error.message);
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const totalFlavors = allFlavors.length;
+            const activeFlavors = Object.values(storeFlavors).filter(f => f.active).length;
+            const avgPrice = totalFlavors > 0 ?
+                allFlavors.reduce((sum, f) => sum + f.price, 0) / totalFlavors : 0;
+
+            document.getElementById('total-flavors').textContent = totalFlavors;
+            document.getElementById('active-flavors').textContent = activeFlavors;
+            document.getElementById('avg-price').textContent = `$${avgPrice.toFixed(2)}`;
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            // Create temporary success message
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = `
+                background: #d4edda;
+                color: #155724;
+                padding: 3.75px 7.5px;
+                border-radius: 2.5px;
+                margin: 5px 7.5px;
+                border-left: 1.25px solid #28a745;
+                text-align: center;
+            `;
+            successDiv.textContent = message;
+
+            const container = document.querySelector('.inventory-table');
+            container.insertBefore(successDiv, container.firstChild);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('add-flavor-form').addEventListener('submit', addFlavor);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+
+</html>

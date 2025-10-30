@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ticket Viewer - Puesto 2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: rgb(90, 90, 90);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 70px;
+            align-items: center;
+            justify-content: center;
+
+        }
+
+        .tickets-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 10px;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vw;
+
+            padding-left: 30px;
+            box-sizing: border-box;
+        }
+
+        .btn-link {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: black;
+            border: 2px solid #000000;
+            padding: 0px 7.5px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin: 6px;
+            max-width: 150px;
+            height: 25px;
+        }
+
+
+
+        .ticket-card {
+            background: #f9e4b7;
+            border: 0.5px dashed #ff6b6b;
+            border-radius: 15px;
+            width: 300px;
+            min-height: 250px;
+            font-family: monospace;
+            white-space: pre-line;
+            padding: 10px;
+            flex-shrink: 0;
+        }
+
+        .indicator {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed #00ff66;
+            color: white;
+            width: 300px;
+            min-height: 250px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
+
+        .indicator span {
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="btn-container">
+        <button class="btn-link" onclick="window.location.href='/puesto2.html'">Tomar Órden</button>
+        <button class="btn-link" onclick="window.location.href='/all-orders.html'">🧾 Todas </button>
+    </div>
+
+    <div class="tickets-container" id="tickets-container"></div>
+
+    <script>
+        const MAX_TICKETS = 30;
+        const REFRESH_INTERVAL = 3000; // 10s
+        let tickets = [];
+        let indicatorIndex = 0;
+        const container = document.getElementById("tickets-container");
+
+        // Render tickets and indicator
+        function renderTickets() {
+            container.innerHTML = "";
+            for (let i = 0; i < MAX_TICKETS; i++) {
+                if (tickets[i]) {
+                    const t = document.createElement("div");
+                    t.className = "ticket-card";
+                    t.textContent = `🧾 Order ID: ${tickets[i].id}\n\n${tickets[i].ticket}`;
+                    container.appendChild(t);
+                } else if (i === indicatorIndex) {
+                    const ind = document.createElement("div");
+                    ind.className = "indicator";
+                    ind.innerHTML = `<span>⏺ Waiting...</span>`;
+                    container.appendChild(ind);
+                } else {
+                    const placeholder = document.createElement("div");
+                    placeholder.className = "ticket-card";
+                    placeholder.style.visibility = "hidden";
+                    container.appendChild(placeholder);
+                }
+            }
+        }
+
+        // Fetch new orders directly from backend
+        async function fetchNewOrders() {
+            try {
+                const response = await fetch('/orders?limit=100&order=DESC');
+                if (!response.ok) throw new Error("Error fetching orders");
+
+                const data = await response.json();
+                if (!Array.isArray(data)) return;
+                console.log("data orders:", data);
+                // Keep only the 16 most recent
+                const recentOrders = data.slice(-MAX_TICKETS);
+                console.log("Slice orders:", recentOrders);
+                // Detect new tickets
+                const existingIds = tickets.map(t => t.id);
+                const newOnes = recentOrders.filter(order => !existingIds.includes(order.id));
+
+                // Add new ones
+                newOnes.forEach(order => addTicket(order));
+
+                renderTickets();
+            } catch (err) {
+                console.warn("⚠️ Error fetching orders:", err.message);
+            }
+        }
+
+        // Add a ticket at the current indicator position
+        function addTicket(order) {
+            tickets[indicatorIndex] = order;
+            indicatorIndex = (indicatorIndex + 1) % MAX_TICKETS;
+
+            if (tickets.length > MAX_TICKETS) tickets.shift();
+            renderTickets();
+        }
+
+        function initPage() {
+            renderTickets();
+            fetchNewOrders();
+            setInterval(fetchNewOrders, REFRESH_INTERVAL);
+        }
+
+        initPage();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ticket Viewer - Puesto 2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: rgb(90, 90, 90);
+            height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        #tickets-container {
+            column-count: 5;
+            column-gap: 10px;
+            column-fill: auto;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Navigation buttons removed for kiosk mode */
+
+        /*.tickets-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            align-items: flex-start;
+            width: 100vw;
+            height: calc(var(--vh) * 100);
+            padding: 20px;
+            box-sizing: border-box;
+            gap: 10px;
+            overflow-y: scroll;
+        }*/
+
+        /* Navigation buttons removed for kiosk mode */
+
+
+
+        .ticket-card {
+            background: #f9e4b7;
+            border: 0.5px dashed #ff6b6b;
+            border-radius: 15px;
+            /* margin-top: 10px; */
+            margin-bottom: 20px;
+            width: 350px;
+            min-height: 250px;
+            font-family: monospace;
+            white-space: pre-line;
+            padding: 10px;
+            break-inside: avoid;
+        }
+
+        .indicator {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed #00ff66;
+            color: white;
+            width: 300px;
+            min-height: 250px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
+
+        .indicator span {
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation buttons removed for kiosk mode -->
+    <div id="tickets-container"></div>
+
+    <script>
+        const MAX_TICKETS_PER_COLUMN = Math.floor(window.innerHeight / 260); // Approximate tickets per column based on min-height 250px + margin
+        const TOTAL_COLUMNS = 5;
+        const REFRESH_INTERVAL = 3000; // 3s
+        let tickets = [];
+        let columns = Array.from({ length: TOTAL_COLUMNS }, () => []);
+
+        // Render tickets in columns
+        function renderTickets() {
+            const container = document.getElementById('tickets-container');
+            container.innerHTML = '';
+
+            // Calculate how many tickets we can actually display
+            const maxDisplayTickets = MAX_TICKETS_PER_COLUMN * TOTAL_COLUMNS;
+
+            // Only keep tickets that fit on screen
+            const displayTickets = tickets.slice(0, maxDisplayTickets);
+
+            // Create ticket elements and append to container
+            displayTickets.forEach(ticket => {
+                const t = document.createElement("div");
+                t.className = "ticket-card";
+                t.textContent = `🧾 Order ID: ${ticket.id}\n\n${ticket.ticket}`;
+                container.appendChild(t);
+            });
+        }
+
+        // Fetch new orders directly from backend
+        async function fetchNewOrders() {
+            try {
+                const response = await fetch('/orders?limit=100&order=DESC');
+                if (!response.ok) throw new Error("Error fetching orders");
+
+                const data = await response.json();
+                if (!Array.isArray(data)) return;
+
+                // Calculate how many tickets we can actually display
+                const maxDisplayTickets = MAX_TICKETS_PER_COLUMN * TOTAL_COLUMNS;
+
+                // Get only the most recent orders that fit on screen
+                const recentOrders = data.slice(-maxDisplayTickets);
+
+                // Replace tickets array with the most recent ones
+                tickets = recentOrders.slice(); // Copy the array
+
+                renderTickets();
+            } catch (err) {
+                console.warn("⚠️ Error fetching orders:", err.message);
+            }
+        }
+
+        function initPage() {
+            renderTickets();
+            fetchNewOrders();
+            setInterval(fetchNewOrders, REFRESH_INTERVAL);
+        }
+
+        initPage();
+    </script>
+</body>
+
+</html>

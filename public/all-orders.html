@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Orders - Ice Cream App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            padding: 5px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 7.5px;
+            font-size: 2.5em;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 7.5px;
+            flex-wrap: wrap;
+            gap: 3.75px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 3px 6.25px;
+            border-radius: 6.25px;
+            font-size: 1.1em;
+            width: 100px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-0.5px);
+        }
+
+        .summary-stats {
+            display: flex;
+            flex-direction: row;
+            background: white;
+            border-radius: 3.75px;
+            padding: 5px;
+            margin-bottom: 7.5px;
+            box-shadow: 0 1px 3.75px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: flex;
+            flex-direction: row;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 5px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px;
+            border-radius: 3.75px;
+            max-width: 100px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 1.25px;
+        }
+
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .orders-table-container {
+            background: white;
+            border-radius: 3.75px;
+            box-shadow: 0 1px 3.75px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: #667eea;
+            color: white;
+            padding: 3.75px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .orders-table th,
+        .orders-table td {
+            padding: 3px;
+            text-align: left;
+            border-bottom: 0.25px solid #eee;
+        }
+
+        .orders-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .orders-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .order-id {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .order-total {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .order-timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .items-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #e74c3c;
+        }
+
+        .no-orders {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: row;
+                gap: 3.75px;
+                align-items: stretch;
+            }
+
+            .stats-grid {
+                grid-template-rows: 1fr;
+            }
+
+            .orders-table-container {
+                overflow-x: auto;
+            }
+
+            .orders-table {
+                min-width: 600px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="controls">
+            <h3>📊 Historial 🧾</h3>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="window.location.href='/puesto2.html'">Tomar Órden</button>
+            <button class="btn" onclick="window.location.href='/inventory.html'">Inventario</button>
+        </div>
+
+        <div class="controls">
+            <div class="stat-card">
+                <div class="stat-value" id="total-orders">0</div>
+                <div class="stat-label">Conteo</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-revenue">$0.00</div>
+                <div class="stat-label">Ingreso total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avg-order">$0.00</div>
+                <div class="stat-label">Orden promedio</div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <div class="orders-table-container">
+        <table class="orders-table" id="orders-table">
+            <thead>
+                <tr>
+                    <th> # id</th>
+                    <th>Fecha-Hora</th>
+                    <th>Contenido</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="orders-table-body">
+                <tr>
+                    <td colspan="4" class="loading">Loading orders...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    </div>
+
+    <script>
+        async function loadAllOrders() {
+            const tableBody = document.getElementById('orders-table-body');
+            tableBody.innerHTML = '<tr><td colspan="4" class="loading">Loading orders...</td></tr>';
+
+            try {
+                const response = await fetch('/all-orders');
+                const orders = await response.json();
+
+                if (orders.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="no-orders">Aun no hay órdenes.</td></tr>';
+                    document.getElementById('total-orders').textContent = '0';
+                    document.getElementById('total-revenue').textContent = '$0.00';
+                    document.getElementById('avg-order').textContent = '$0.00';
+                    return;
+                }
+
+                // Update summary stats
+                document.getElementById('total-orders').textContent = orders.length;
+                const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+                document.getElementById('total-revenue').textContent = `$${totalRevenue.toFixed(2)}`;
+                const avgOrder = totalRevenue / orders.length;
+                document.getElementById('avg-order').textContent = `$${avgOrder.toFixed(2)}`;
+
+                // Populate table
+                tableBody.innerHTML = '';
+                orders.reverse().forEach(order => {
+                    const row = document.createElement('tr');
+
+                    const itemsText = order.items.map(item => `${item.flavor}(${item.quantity})`).join(', ');
+
+                    row.innerHTML = `
+                        <td class="order-id">#${order.id}</td>
+                        <td class="order-timestamp">${new Date(order.timestamp).toLocaleString()}</td>
+                        <td class="items-cell" title="${itemsText}">${itemsText}</td>
+                        <td class="order-total">$${order.total.toFixed(2)}</td>
+                    `;
+
+                    tableBody.appendChild(row);
+                });
+
+            } catch (error) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="error">Error loading orders. Please check if the server is running.</td></tr>';
+            }
+        }
+
+        // Load orders when page loads
+        window.onload = loadAllOrders;
+    </script>
+</body>
+
+</html>
