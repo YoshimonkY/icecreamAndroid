@@ -6,31 +6,31 @@ const dbFile = "./icecream.db";
 let db;
 
 export async function initDB() {
-    const SQL = await initSqlJs({
-        locateFile: (file) => `node_modules/sql.js/dist/${file}`,
-    });
+  const SQL = await initSqlJs({
+    locateFile: (file) => `node_modules/sql.js/dist/${file}`,
+  });
 
-    // Cargar base existente o crear una nueva
-    if (fs.existsSync(dbFile)) {
-        const fileBuffer = fs.readFileSync(dbFile);
-        db = new SQL.Database(fileBuffer);
-    } else {
-        db = new SQL.Database();
-    }
+  // Cargar base existente o crear una nueva
+  if (fs.existsSync(dbFile)) {
+    const fileBuffer = fs.readFileSync(dbFile);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
+  }
 
-    // Crear tablas
-    db.run(`
+  // Crear tablas
+  db.run(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT,
       total REAL,
+      client TEXT,
       ticket TEXT
     );
   `);
-
-    db.run(`
+  // id INTEGER PRIMARY KEY AUTOINCREMENT,
+  db.run(`
     CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id INTEGER,
       flavor TEXT,
       quantity INTEGER,
@@ -39,7 +39,7 @@ export async function initDB() {
     );
   `);
 
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS flavors (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
@@ -49,7 +49,7 @@ export async function initDB() {
     );
   `);
 
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS store_flavors (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       store_name TEXT NOT NULL,
@@ -61,55 +61,92 @@ export async function initDB() {
     );
   `);
 
-    // Insertar sabores iniciales
-    const defaultFlavors = [
-        'Limón', 'Mango', 'Fresa', 'Fresa mora', 'Guanábana', 'Guayaba',
-        'Maracuyá', 'Tuna', 'Sandía', 'Melón', 'Nanche', 'Tinto',
-        'Jugo verde', 'Mandarina', 'Pitaya', 'Pitahaya', 'Tamarindo',
-        'Piña', 'Acai Asai', 'Zapote', 'Gazpacho', 'Frambuesa',
-        'Frutos rojos', 'Tequila limón', 'Mezcal higo', 'Queso',
-        'Taro', 'Mamey', 'Coco', 'Pistache', 'Piñón', 'Choco Menta',
-        'Chocolate (amaranto-cereza envinada)', 'Vainilla', 'Oreo',
-        'Malvavisco', 'Cajeta', 'Fresas con crema', 'Café',
-        'Pay de limón', 'Matcha', 'Mouse de Naranja', 'Arroz con leche',
-        'Mazapán', 'Cereza', 'Frambuesa yoghurt', 'Rompope'
-    ];
+  // Insertar sabores iniciales
+  const defaultFlavors = [
+    'Acai Asai',
+    'Arroz con leche',
+    'Café',
+    'Cajeta',
+    'Cereza',
+    'Choco Menta',
+    'Chocolate (amaranto-cereza envinada)',
+    'Coco',
+    'Frambuesa',
+    'Frambuesa yoghurt',
+    'Fresa',
+    'Fresa mora',
+    'Fresas con crema',
+    'Frutos rojos',
+    'Gazpacho',
+    'Guanábana',
+    'Guayaba',
+    'Jugo verde',
+    'Limón',
+    'Malvavisco',
+    'Mamey',
+    'Mandarina',
+    'Mango',
+    'Maracuyá',
+    'Matcha',
+    'Mazapán',
+    'Melón',
+    'Mezcal higo',
+    'Mouse de Naranja',
+    'Nanche',
+    'Oreo',
+    'Pay de limón',
+    'Pistache',
+    'Pitahaya',
+    'Pitaya',
+    'Piña',
+    'Piñón',
+    'Queso',
+    'Rompope',
+    'Sandía',
+    'Tamarindo',
+    'Taro',
+    'Tequila limón',
+    'Tinto',
+    'Tuna',
+    'Vainilla',
+    'Zapote'
+  ];
 
-    defaultFlavors.forEach(name => {
-        db.run(`INSERT OR IGNORE INTO flavors (name, price) VALUES (?, 12.00);`, [name]);
-    });
+  defaultFlavors.forEach(name => {
+    db.run(`INSERT OR IGNORE INTO flavors (name, price) VALUES (?, 12.00);`, [name]);
+  });
 
-    saveDB();
-    return db;
+  saveDB();
+  return db;
 }
 
 // Guardar cambios en disco
 export function saveDB() {
-    const data = db.export();
-    fs.writeFileSync(dbFile, Buffer.from(data));
+  const data = db.export();
+  fs.writeFileSync(dbFile, Buffer.from(data));
 }
 
 // Ejecutar query sin retorno
 export function run(sql, params = []) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    stmt.step();
-    stmt.free();
-    saveDB();
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  stmt.step();
+  stmt.free();
+  saveDB();
 }
 
 // Obtener varias filas
 export function all(sql, params = []) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    const rows = [];
-    while (stmt.step()) rows.push(stmt.getAsObject());
-    stmt.free();
-    return rows;
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
 }
 
 // Obtener una sola fila
 export function get(sql, params = []) {
-    const rows = all(sql, params);
-    return rows[0] || null;
+  const rows = all(sql, params);
+  return rows[0] || null;
 }

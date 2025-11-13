@@ -357,7 +357,7 @@
                 <h3>Usuario</h3>
             </div>
 
-            <div class="ticket" id="ticket" style="display: none;"></div>
+            <table class="ticket" id="ticket" style="display: none;"></table>
 
 
             <table class="order-table" id="order-table">
@@ -408,6 +408,8 @@
         let availableFlavors = [];
         let selectedFlavor = null;
         let deleteModeCups = new Set(); // Track which cups are in delete mode
+        let orderTotal = 0;
+        const orderTable = document.getElementById('order-table');
 
         // Load flavors from puesto2 store
         async function loadFlavors() {
@@ -587,7 +589,7 @@
 
         // Update order preview with plain text table
         function updateOrderPreview() {
-            const orderTable = document.getElementById('order-table');
+
             const page = document.querySelector('.page');
 
             // Store current scroll position and check if we're at bottom
@@ -656,14 +658,14 @@
                         90: 13
                     };
                     let discount = discountMap[cup.subtotal] || i;
-                    tableHtml += `<tr><td colspan="3" style="width: 80px; text-align: right; color: red;"><b>desc. 1/2 l. -$${discount.toFixed(2)}</b></td></tr>`;
+                    tableHtml += `<tr><td colspan="3" style="width: 80px; text-align: right; color: red;"><b>descuento $-${discount.toFixed(2)}</b></td></tr>`;
                 }
 
                 tableHtml += `<tr><td style="height: 10px;" colspan="3"></td></tr>`;
             });
 
             // Add order total at the bottom, applying discount for full cups (6 scoops)
-            const orderTotal = allCups.reduce((sum, cup) => {
+            orderTotal = allCups.reduce((sum, cup) => {
                 let cupTotal = cup.subtotal;
                 if (cup.totalScoops === 6) {
                     const discountMap = {
@@ -721,20 +723,20 @@
             const total = allCups.reduce((sum, cup) => sum + cup.subtotal, 0);
 
             // Generate enhanced ticket
-            const ticketContainer = document.getElementById('ticket');
+            //const ticketContainer = document.getElementById('ticket');
             const timestamp = new Date().toLocaleString();
 
-            let ticket = `🍨 PUESTO 2 - Usuario 🍨
+            let ticket = `Suc. Imán - Log-Usuario 
 ${timestamp}
 -----------------------------------
-Cliente: ${customerName} 
+Cliente: ${customerName}
 -----------------------------------`;
 
             allCups.forEach((cup, index) => {
-                ticket += `\n🥤 VASO ${cup.cupNumber} 🥤`;
+                ticket += `\n VASO ${cup.cupNumber}`;
                 Object.values(cup.items).forEach(item => {
-                    ticket += `\n${item.flavor} ${item.quantity} - - - $${(item.quantity * item.price).toFixed(2)}`;
-                    ticket += `\n`;
+                    ticket += `\n${item.quantity} ${item.flavor} - - - $${(item.quantity * item.price).toFixed(2)}`;
+
                 });
 
                 if (Object.keys(cup.items).length === 0) {
@@ -743,10 +745,13 @@ Cliente: ${customerName}
             });
 
             ticket += `\n====================================`;
-            ticket += `\nTOTAL GENERAL: $${total.toFixed(2)}`;
+            ticket += `\nTOTAL GENERAL: $${orderTotal.toFixed(2)}`;
 
-            ticketContainer.textContent = ticket;
-            ticketContainer.style.display = 'block';
+            orderTable.insertAdjacentHTML('afterbegin', `<tr>
+                <td colspan="2" style="width = 130px; text-align: left;"><b>Cliente: ${customerName}</b></td>
+                <td style="width = 220px; text-align: center;
+                "><b>${timestamp}</b></td>
+            </tr>`);
 
             try {
                 const response = await fetch('/orders', {
@@ -756,7 +761,7 @@ Cliente: ${customerName}
                     },
                     body: JSON.stringify({
                         cups: allCups,
-                        total: total,
+                        total: orderTotal,
                         ticket: ticket,
                         customerName: customerName.trim(),
                         storeId: 'puesto2'
@@ -770,7 +775,7 @@ Cliente: ${customerName}
                 if (response.ok) {
                     alert('Orden generada correctamente!');
                     // Hide order preview
-                    document.querySelector('.order-table').style.display = 'none';
+                    //document.querySelector('.order-table').style.display = 'none';
                     // Show the New Order button and hide Submit Order button
                     document.getElementById('new-order-container').style.display = 'block';
                     document.getElementById('quantity-controls-container').style.display = 'none';
@@ -786,6 +791,7 @@ Cliente: ${customerName}
         // Start new order
         function startNewOrder() {
             // Reset everything
+            orderTotal = 0;
             currentCupNumber = 1;
             cups = [];
             currentCup = {
