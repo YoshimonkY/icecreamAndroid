@@ -48,9 +48,9 @@ app.post("/orders", (req, res) => {
         }
 
         // Inserta una fila en la tabla orders con el timestamp, total y ticket (texto del ticket).
-        run("INSERT INTO orders (timestamp, total, ticket, usuario) VALUES (?, ?, ?,?)", [timestamp, total, ticket, customerName]);
-        // Obtiene el id de la fila recién insertada (usando max(id) ya que last_insert_rowid no funciona).
-        const orderId = db.exec("SELECT max(id) from orders;")[0].values[0][0];
+        run("INSERT INTO orders (timestamp, total, ticket, client) VALUES (?, ?, ?, ?)", [timestamp, total, ticket, customerName]);
+        // Obtiene el id de la fila recién insertada usando last_insert_rowid.
+        const orderId = db.exec("SELECT max(id) from orders")[0].values[0][0];
 
         // Inserta cada item asociado a esta orden en la tabla order_items, vinculándolos con orderId.
         allItems.forEach(item => {

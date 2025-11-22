@@ -24,8 +24,8 @@ export async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT,
       total REAL,
-      client TEXT,
-      ticket TEXT
+      ticket TEXT,
+      client TEXT
     );
   `);
   // id INTEGER PRIMARY KEY AUTOINCREMENT,
