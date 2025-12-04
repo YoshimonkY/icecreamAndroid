@@ -372,7 +372,7 @@
         <div class="store-selector">
             <p style="text-align: center; margin-bottom: 10px;">Agregar sabores a:</p>
             <div class="store-buttons">
-                <button class="store-btn" onclick="addFlavorsToStore('puesto2')">🥤 Imán</button>
+                <button class="store-btn" onclick="addFlavorsToStore('puesto2')">🥤 Local Host</button>
                 <button class="store-btn" onclick="addFlavorsToStore('puesto')">🥤 Tienda 2</button>
             </div>
         </div>
@@ -428,6 +428,11 @@
         let storeFlavors = {};
         let selectedFlavors = new Set();
 
+        // Helper: map a client-side index to the flavor object
+        function getFlavorByIndex(index) {
+            return allFlavors.find(f => f.index === index) || null;
+        }
+
         // Initialize the page
         async function initializePage() {
             await loadAllFlavors();
@@ -439,11 +444,14 @@
         async function loadAllFlavors() {
             try {
                 const response = await fetch('/flavors');
-                allFlavors = await response.json();
+                const flavors = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(allFlavors.error || 'Error loading flavors');
+                    throw new Error(flavors.error || 'Error loading flavors');
                 }
+
+                // Assign a stable client-side numeric index for UI (server doesn't provide an index)
+                allFlavors = flavors.map((f, i) => ({ ...f, index: i + 1 }));
             } catch (error) {
                 showError('Error cargando sabores: ' + error.message);
             }
@@ -459,14 +467,18 @@
                     throw new Error(flavors.error || 'Error loading store flavors');
                 }
 
-                // Create a map of flavor_id -> active status for this store
+                // Map store flavors to our client-side indexes (server returns `name`, not index)
                 storeFlavors = {};
                 flavors.forEach(flavor => {
-                    storeFlavors[flavor.id] = {
-                        id: flavor.id,
+                    const matched = allFlavors.find(f => f.name === flavor.name);
+                    const idx = matched ? matched.index : null;
+                    // key by index when available, otherwise by name (fallback)
+                    const key = idx || flavor.name;
+                    storeFlavors[key] = {
+                        id: idx,
                         name: flavor.name,
                         price: flavor.price,
-                        active: flavor.store_active !== null ? flavor.store_active : false
+                        active: flavor.store_active !== null ? Boolean(flavor.store_active) : false
                     };
                 });
 
@@ -491,21 +503,22 @@
             if (loading) loading.style.display = 'none';
 
             tbody.innerHTML = allFlavors.map((flavor, index) => {
-                const isSelected = selectedFlavors.has(flavor.id);
+                const isSelected = selectedFlavors.has(flavor.index);
+                const displayPrice = typeof flavor.price === 'number' ? flavor.price : parseFloat(flavor.price) || 0;
 
                 return `
-                    <tr data-flavor-id="${flavor.id}" class="${isSelected ? 'selected' : ''}">
-                        <td class="index-cell">${index + 1}</td>
-                        <td class="flavor-name" onclick="selectFlavor(${flavor.id})">${flavor.name}</td>
+                    <tr data-flavor-id="${flavor.index}" class="${isSelected ? 'selected' : ''}">
+                        <td class="index-cell">${flavor.index}</td>
+                        <td class="flavor-name" onclick="selectFlavor(${flavor.index})">${flavor.name}</td>
                         <td class="price-cell">
-                            <span class="price-display" onclick="editPrice(this, ${flavor.id})">$${flavor.price.toFixed(2)}</span>
+                            <span class="price-display" onclick="editPrice(this, ${flavor.index})">$${displayPrice.toFixed(2)}</span>
                             <input type="number" class="price-input"
-                                   value="${flavor.price}"
+                                   value="${displayPrice}"
                                    step="0.01" min="0"
                                    style="display: none;"
-                                   onblur="savePrice(this, ${flavor.id})"
-                                   onkeypress="handlePriceKeyPress(event, this, ${flavor.id})">
-                            <button class="btn-save-price" onclick="savePrice(this.previousElementSibling, ${flavor.id})" style="display: none;">💾</button>
+                                   onblur="savePrice(this, ${flavor.index})"
+                                   onkeypress="handlePriceKeyPress(event, this, ${flavor.index})">
+                            <button class="btn-save-price" onclick="savePrice(this.previousElementSibling, ${flavor.index})" style="display: none;">💾</button>
                         </td>
                     </tr>
                 `;
@@ -546,7 +559,10 @@
             }
 
             try {
-                const response = await fetch(`/flavors/${flavorId}`, {
+                const flavor = getFlavorByIndex(flavorId);
+                if (!flavor) throw new Error('Sabor no encontrado');
+
+                const response = await fetch(`/flavors/${encodeURIComponent(flavor.name)}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -589,7 +605,10 @@
             }
 
             try {
-                const response = await fetch(`/flavors/${flavorId}`, {
+                const flavor = getFlavorByIndex(flavorId);
+                if (!flavor) throw new Error('Sabor no encontrado');
+
+                const response = await fetch(`/flavors/${encodeURIComponent(flavor.name)}`, {
                     method: 'DELETE'
                 });
 
@@ -621,9 +640,11 @@
             }
 
             try {
-                const deletePromises = Array.from(selectedFlavors).map(flavorId =>
-                    fetch(`/flavors/${flavorId}`, { method: 'DELETE' })
-                );
+                const deletePromises = Array.from(selectedFlavors).map(async flavorId => {
+                    const flavor = getFlavorByIndex(flavorId);
+                    if (!flavor) return Promise.resolve(new Response(null, { status: 404 }));
+                    return fetch(`/flavors/${encodeURIComponent(flavor.name)}`, { method: 'DELETE' });
+                });
 
                 const results = await Promise.all(deletePromises);
                 const failedDeletes = results.filter(r => !r.ok);
@@ -649,10 +670,10 @@
             }
 
             try {
-                const flavorAssignments = Array.from(selectedFlavors).map(flavorId => ({
-                    flavorId: parseInt(flavorId),
-                    active: true
-                }));
+                const flavorAssignments = Array.from(selectedFlavors).map(flavorId => {
+                    const f = getFlavorByIndex(flavorId);
+                    return { flavorName: f ? f.name : null };
+                }).filter(a => a.flavorName);
 
                 const response = await fetch(`/store-flavors/${store}`, {
                     method: 'POST',

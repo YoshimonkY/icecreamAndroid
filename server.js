@@ -4,9 +4,8 @@
 import express from "express";
 // Importa body-parser, un middleware que ayuda a parsear cuerpos de petición (JSON, urlencoded).
 import bodyParser from "body-parser";
-// Importa funciones desde el módulo local db.js: initDB (inicializa DB), all (consulta que devuelve filas),
-// run (ejecuta sentencias) y saveDB (guardar DB en disco si aplica).
-import { initDB, all, run, saveDB } from "./db.js";
+// Importa funciones desde el módulo local db.js: initDB (inicializa DB) y saveDB (guardar DB en disco si aplica).
+import { initDB, saveDB } from "./db.js";
 
 // Crea una instancia de la aplicación Express.
 const app = express();
@@ -24,6 +23,30 @@ let db;
 // Nota: el uso de `await` aquí requiere que el archivo se ejecute en un contexto que soporte top-level await (Node moderno).
 await initDB().then((instance) => (db = instance));
 
+// Define helper functions using the local db instance
+const run = (sql, params = []) => {
+    try {
+        console.log("run() called with params:", params);
+        const stmt = db.prepare(sql);
+        stmt.bind(params);
+        stmt.step();
+        stmt.free();
+        saveDB();
+    } catch (e) {
+        console.error("run() error:", e.message);
+        throw e;
+    }
+};
+
+const all = (sql, params = []) => {
+    const stmt = db.prepare(sql);
+    stmt.bind(params);
+    const rows = [];
+    while (stmt.step()) rows.push(stmt.getAsObject());
+    stmt.free();
+    return rows;
+};
+
 // ======================
 //  ORDERS
 // ======================
@@ -31,34 +54,32 @@ await initDB().then((instance) => (db = instance));
 app.post("/orders", (req, res) => {
     try {
         // Desestructura campos esperados del body; provee valores por defecto (items = []) si no vienen.
-        const { items = [], total, ticket, cups, customerName } = req.body;
-        // Crea timestamp ISO actual para registrar cuándo llega la orden.
-        const timestamp = new Date().toLocaleString();
-        // Array donde acumularemos todos los items que hay que insertar en la tabla order_items.
-        const allItems = [];
+        const { customer, store, timestamp, cups, subtotal, discount, total } = req.body;
 
-        // Si el body trae `cups` (estructura usada probablemente para agrupaciones), iteramos y extraemos items
-        // Aquí se asume que cada cup tiene una propiedad `.items` que es un objeto; Object.values obtiene los items
-        // y los pushea en allItems.
-        if (cups && cups.length) {
-            cups.forEach(cup => Object.values(cup.items).forEach(item => allItems.push(item)));
-        } else {
-            // Si no hay cups, usamos el array `items` directamente.
-            allItems.push(...items);
-        }
+        console.log("POST /orders received:");
+        console.log("  customer:", customer);
+        console.log("  store:", store);
+        console.log("  timestamp:", timestamp);
+        console.log("  cups type:", typeof cups);
+        console.log("  cups value:", cups);
+        console.log("  total:", total);
 
-        // Inserta una fila en la tabla orders con el timestamp, total y ticket (texto del ticket).
-        run("INSERT INTO orders (timestamp, total, ticket, client) VALUES (?, ?, ?, ?)", [timestamp, total, ticket, customerName]);
+        // if (cups && cups.length) {
+        //     cups.forEach(cup => Object.values(cup.items).forEach(item => allItems.push(item)));
+        // } else {
+        //     // Si no hay cups, usamos el array `items` directamente.
+        //     allItems.push(...items);
+        // }
+
+        // Inserta una fila en la tabla orders con los datos recibidos.
+        run("INSERT INTO orders (customer, store, timestamp, cups, subtotal, discount, total) VALUES (?, ?, ?, ?, ?, ?, ?)", [customer, store, timestamp, cups, subtotal, discount, total]);
         // Obtiene el id de la fila recién insertada usando last_insert_rowid.
-        const orderId = db.exec("SELECT max(id) from orders")[0].values[0][0];
+        const results = db.exec("SELECT max(rowid) from orders");
+        const orderId = results && results[0] && results[0].values && results[0].values[0] ? results[0].values[0][0] : null;
 
-        // Inserta cada item asociado a esta orden en la tabla order_items, vinculándolos con orderId.
-        allItems.forEach(item => {
-            run("INSERT INTO order_items (order_id, flavor, quantity, price) VALUES (?, ?, ?, ?)",
-                [orderId, item.flavor, item.quantity, item.price]);
-        });
+        console.log("Order inserted with ID:", orderId);
 
-        // Responde al cliente con el id de la orden y un mensaje de éxito en formato JSON.
+        // Responde al customer con el id de la orden y un mensaje de éxito en formato JSON.
         res.json({ id: orderId, message: "Order saved successfully" });
     } catch (err) {
         // Si ocurre cualquier error (ej. DB caída, formato inesperado), se responde con 500 y el mensaje del error.
@@ -74,9 +95,8 @@ app.get("/orders", (req, res) => {
     const orderDir = req.query.order === "ASC" ? "ASC" : "DESC";
     // Ejecuta una consulta que trae órdenes y sus items mediante LEFT JOIN; se ordena por el id de la orden.
     const rows = all(`
-    SELECT o.id, o.timestamp, o.total, o.ticket, oi.flavor, oi.quantity, oi.price
+    SELECT o.id, o.customer, o.store, o.timestamp, o.cups, o.subtotal, o.discount, o.total
     FROM orders o
-    LEFT JOIN order_items oi ON o.id = oi.order_id
     ORDER BY o.id ${orderDir}
     LIMIT ?;
   `, [limit]);
@@ -85,13 +105,24 @@ app.get("/orders", (req, res) => {
     const orders = {};
     rows.forEach(r => {
         // Si aún no existe la orden en el objeto, la inicializa con campos base y un array items vacío.
-        if (!orders[r.id]) orders[r.id] = { id: r.id, timestamp: r.timestamp, total: r.total, ticket: r.ticket, items: [] };
-        // Si la fila tiene sabor (flavor) — puede ser null cuando no hay items — se agrega a la lista de items.
-        if (r.flavor) orders[r.id].items.push({ flavor: r.flavor, quantity: r.quantity, price: r.price });
+        if (!orders[r.id]) orders[r.id] = { id: r.id, customer: r.customer, store: r.store, timestamp: r.timestamp, cups: r.cups, subtotal: r.subtotal, discount: r.discount, total: r.total };
+        // Parse items from ticket if available
+        // if (r.ticket && orders[r.id].items.length === 0) {
+        //     const lines = r.ticket.split('\n');
+        //     lines.forEach(line => {
+        //         const match = line.match(/^(.+?)\s+(\d+)\s+-\s+-\s+-\s+\$(\d+\.\d{2})$/);
+        //         if (match) {
+        //             const [, flavor, quantity, price] = match;
+        //             orders[r.id].items.push({ flavor: flavor.trim(), quantity: parseInt(quantity), price: parseFloat(price) });
+        //         }
+        //     });
+        // }
     });
+
 
     // Responde con un array de órdenes (valores del objeto orders).
     res.json(Object.values(orders));
+    console.log(orders);
 });
 
 // ======================
@@ -100,39 +131,35 @@ app.get("/orders", (req, res) => {
 // Ruta GET /all-orders: similar a /orders, pero adicionalmente intenta parsear items desde el campo `ticket`
 // cuando la consulta a order_items no devuelve filas (útil si antiguas órdenes almacenaron solo el texto del ticket).
 app.get("/all-orders", (req, res) => {
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 100;
     const orderDir = req.query.order === "ASC" ? "ASC" : "DESC";
     const rows = all(`
-    SELECT o.id, o.timestamp, o.total, o.ticket, oi.flavor, oi.quantity, oi.price
+    SELECT o.id, o.customer, o.store, o.timestamp, o.cups, o.subtotal, o.discount, o.total
     FROM orders o
-    LEFT JOIN order_items oi ON o.id = oi.order_id
     ORDER BY o.id ${orderDir}
     LIMIT ?;
   `, [limit]);
 
     const orders = {};
     rows.forEach(r => {
-        if (!orders[r.id]) orders[r.id] = { id: r.id, timestamp: r.timestamp, total: r.total, ticket: r.ticket, items: [] };
-        if (r.flavor) orders[r.id].items.push({ flavor: r.flavor, quantity: r.quantity, price: r.price });
-    });
-
-    // Si una orden no tiene items en la tabla order_items pero sí tiene texto en ticket,
-    // intentamos parsear líneas del ticket con una expresión regular para reconstruir items.
-    Object.values(orders).forEach(order => {
-        if (order.items.length === 0 && order.ticket) {
-            const lines = order.ticket.split('\n'); // separa el ticket por líneas
+        if (!orders[r.id]) orders[r.id] = {
+            id: r.id, customer: r.customer, store: r.store, timestamp: r.timestamp,
+            cups: r.cups, subtotal: r.subtotal, discount: r.discount, total: r.total
+        };
+        // Parse items from ticket if available
+        if (r.ticket && orders[r.id].items.length === 0) {
+            const lines = r.ticket.split('\n');
             lines.forEach(line => {
-                // Expresión regular que intenta capturar: "<flavor>  <quantity>  - - -  $<price>"
                 const match = line.match(/^(.+?)\s+(\d+)\s+-\s+-\s+-\s+\$(\d+\.\d{2})$/);
                 if (match) {
-                    // Desestructura los grupos capturados: flavor, quantity y price.
                     const [, flavor, quantity, price] = match;
-                    // Agrega el item parseado a la orden (con conversión a número donde corresponde).
-                    order.items.push({ flavor: flavor.trim(), quantity: parseInt(quantity), price: parseFloat(price) });
+                    orders[r.id].items.push({ flavor: flavor.trim(), quantity: parseInt(quantity), price: parseFloat(price) });
                 }
             });
         }
     });
+
+    // Ticket parsing is already done in the forEach above
 
     // Responde con todas las órdenes (convertidas a array).
     res.json(Object.values(orders));
@@ -159,35 +186,34 @@ app.post("/flavors", (req, res) => {
     try {
         // Inserta nuevo registro en la tabla flavors.
         run("INSERT INTO flavors (name, price) VALUES (?, ?)", [name, price]);
-        res.json({ message: "Flavor added successfully" });
+        res.json({ message: "Sabor agregado" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Ruta PUT /flavors/:id: actualiza campos (price y/o active) de un sabor específico.
-app.put("/flavors/:id", (req, res) => {
-    const { id } = req.params; // id proviene de la ruta
-    const { price, active } = req.body; // campos que pueden actualizarse
+// Ruta PUT /flavors/:name: actualiza campos (price) de un sabor específico.
+app.put("/flavors/:name", (req, res) => {
+    const { name } = req.params; // name proviene de la ruta
+    const { price } = req.body; // campos que pueden actualizarse
     const updates = [];
     const params = [];
 
     // Solo agrega a la lista de updates si vienen en el body (no undefined).
     if (price !== undefined) { updates.push("price = ?"); params.push(price); }
-    if (active !== undefined) { updates.push("active = ?"); params.push(active); }
 
     // Si no hay campos para actualizar, responde 400 (bad request).
     if (!updates.length) return res.status(400).json({ error: "No fields to update" });
 
-    // Ejecuta la sentencia UPDATE con los parámetros acumulados y el id al final.
-    run(`UPDATE flavors SET ${updates.join(", ")} WHERE id = ?`, [...params, id]);
+    // Ejecuta la sentencia UPDATE con los parámetros acumulados y el name al final.
+    run(`UPDATE flavors SET ${updates.join(", ")} WHERE name = ?`, [...params, name]);
     res.json({ message: "Flavor updated" });
 });
 
-// Ruta DELETE /flavors/:id: elimina un sabor por id.
-app.delete("/flavors/:id", (req, res) => {
-    const { id } = req.params;
-    run("DELETE FROM flavors WHERE id = ?", [id]);
+// Ruta DELETE /flavors/:name: elimina un sabor por name.
+app.delete("/flavors/:name", (req, res) => {
+    const { name } = req.params;
+    run("DELETE FROM flavors WHERE name = ?", [name]);
     res.json({ message: "Flavor deleted" });
 });
 
@@ -197,7 +223,7 @@ app.delete("/flavors/:id", (req, res) => {
 
 // Obtener sabores de una tienda (store-specific flavors)
 app.get("/store-flavors/:store", (req, res) => {
-    const { store } = req.params; // nombre del store en la ruta
+    const { store } = req.params; // nombre de la store en la ruta
     try {
         // Consulta asignaciones existentes para esa tienda en la tabla store_flavors.
         const existing = all("SELECT * FROM store_flavors WHERE store_name = ?", [store]);
@@ -208,18 +234,18 @@ app.get("/store-flavors/:store", (req, res) => {
             if (puestoRows.length > 0) {
                 // Insertamos para puesto2 las mismas asignaciones encontradas en "puesto".
                 puestoRows.forEach(row => {
-                    run("INSERT INTO store_flavors (store_name, flavor_id, active) VALUES (?, ?, ?)", ["puesto2", row.flavor_id, row.active]);
+                    run("INSERT INTO store_flavors (store_name, flavor_name) VALUES (?, ?)", ["puesto2", row.flavor_name]);
                 });
             }
         }
 
         // Consulta que trae todos los sabores y une con store_flavors para indicar si están activos en la tienda.
         const rows = all(`
-      SELECT f.*, sf.active as store_active
-      FROM flavors f
-      LEFT JOIN store_flavors sf ON f.id = sf.flavor_id AND sf.store_name = ?
-      ORDER BY f.name;
-    `, [store]);
+          SELECT f.*, CASE WHEN sf.flavor_name IS NOT NULL THEN 1 ELSE 0 END as store_active
+          FROM flavors f
+          LEFT JOIN store_flavors sf ON f.name = sf.flavor_name AND sf.store_name = ?
+          ORDER BY f.name;
+        `, [store]);
 
         // Devuelve la lista de sabores con la información de si está activo en esa tienda.
         res.json(rows);
@@ -241,11 +267,9 @@ app.post("/store-flavors/:store", (req, res) => {
         // Borra asignaciones previas para esa tienda antes de insertar las nuevas (operación de reemplazo).
         run("DELETE FROM store_flavors WHERE store_name = ?", [store]);
 
-        // Inserta solo las asignaciones activas que vengan en el array.
+        // Inserta las asignaciones que vengan en el array.
         flavorAssignments.forEach(a => {
-            if (a.active) {
-                run("INSERT INTO store_flavors (store_name, flavor_id, active) VALUES (?, ?, 1)", [store, a.flavorId]);
-            }
+            run("INSERT INTO store_flavors (store_name, flavor_name) VALUES (?, ?)", [store, a.flavorName]);
         });
 
         res.json({ message: "Store flavors updated successfully" });

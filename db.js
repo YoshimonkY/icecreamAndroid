@@ -22,42 +22,30 @@ export async function initDB() {
   db.run(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer TEXT,
+      store TEXT,
       timestamp TEXT,
-      total REAL,
-      ticket TEXT,
-      client TEXT
-    );
-  `);
-  // id INTEGER PRIMARY KEY AUTOINCREMENT,
-  db.run(`
-    CREATE TABLE IF NOT EXISTS order_items (
-      order_id INTEGER,
-      flavor TEXT,
-      quantity INTEGER,
-      price REAL,
-      FOREIGN KEY(order_id) REFERENCES orders(id)
+      cups TEXT,
+      subtotal REAL,
+      discount REAL,
+      total REAL
     );
   `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS flavors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
+      name TEXT PRIMARY KEY UNIQUE NOT NULL,
       price REAL NOT NULL,
-      active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS store_flavors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
       store_name TEXT NOT NULL,
-      flavor_id INTEGER NOT NULL,
-      active INTEGER DEFAULT 1,
+      flavor_name TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(flavor_id) REFERENCES flavors(id),
-      UNIQUE(store_name, flavor_id)
+      FOREIGN KEY(flavor_name) REFERENCES flavors(flavor_name)
     );
   `);
 
@@ -112,8 +100,8 @@ export async function initDB() {
     'Zapote'
   ];
 
-  defaultFlavors.forEach(name => {
-    db.run(`INSERT OR IGNORE INTO flavors (name, price) VALUES (?, 12.00);`, [name]);
+  defaultFlavors.forEach(flavor => {
+    db.run(`INSERT OR IGNORE INTO flavors (name, price) VALUES (?, 12.00);`, [flavor]);
   });
 
   saveDB();

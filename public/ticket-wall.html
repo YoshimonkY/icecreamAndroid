@@ -125,7 +125,10 @@
                 if (tickets[i]) {
                     const t = document.createElement("div");
                     t.className = "ticket-card";
-                    t.textContent = `🧾 Order ID: ${tickets[i].id}\n\n${tickets[i].ticket}`;
+                    // Show cups as raw JSON text
+                    const cupsRaw = tickets[i].cups;
+                    const cupsText = JSON.stringify(cupsRaw, null, 2);
+                    t.textContent = `🧾 Order ID: ${tickets[i].id}\n\n${cupsText}`;
                     container.appendChild(t);
                 } else if (i === indicatorIndex) {
                     const ind = document.createElement("div");
@@ -150,6 +153,7 @@
                 const data = await response.json();
                 if (!Array.isArray(data)) return;
                 console.log("data orders:", data);
+                console.log("First order cups:", data[0]?.cups);
                 // Keep only the 16 most recent
                 const recentOrders = data.slice(-MAX_TICKETS);
                 console.log("Slice orders:", recentOrders);

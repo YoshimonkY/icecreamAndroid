@@ -322,7 +322,7 @@
 
         <div class="container">
             <div class="header-container">
-                <h3>Tienda Imán</h3>
+                <h3>Local Host</h3>
                 <h3>Usuario</h3>
             </div>
 
@@ -344,7 +344,7 @@
             </div>
 
 
-            <div class="quantity-controls" id="quantity-controls-container">
+            <div class='quantity-controls' id="quantity-controls-container">
                 <button class="quantity-btn" onclick="createNewCup()">🥤</button>
                 <button class="quantity-btn" onclick="addScoops(1)">+1</button>
                 <button class="quantity-btn" onclick="addScoops(2)">+2</button>
@@ -689,32 +689,29 @@
             }
 
             // Calculate total
-            const total = allCups.reduce((sum, cup) => sum + cup.subtotal, 0);
-
-            // Generate enhanced ticket
-            //const ticketContainer = document.getElementById('ticket');
+            const subtotal = allCups.reduce((sum, cup) => sum + cup.subtotal, 0);
             const timestamp = new Date().toLocaleString();
 
-            let ticket = `Suc. Imán - Log-Usuario 
-${timestamp}
------------------------------------
-Cliente: ${customerName}
------------------------------------`;
+            //             let ticket = `Suc. Imán - Log-Usuario 
+            // ${timestamp}
+            // -----------------------------------
+            // Cliente: ${customerName}
+            // -----------------------------------`;
 
-            allCups.forEach((cup, index) => {
-                ticket += `\n VASO ${cup.cupNumber}`;
-                Object.values(cup.items).forEach(item => {
-                    ticket += `\n${item.quantity} ${item.flavor} - - - $${(item.quantity * item.price).toFixed(2)}`;
+            //             allCups.forEach((cup, index) => {
+            //                 ticket += `\n VASO ${cup.cupNumber}`;
+            //                 Object.values(cup.items).forEach(item => {
+            //                     ticket += `\n${item.quantity} ${item.flavor} - - - $${(item.quantity * item.price).toFixed(2)}`;
 
-                });
+            //                 });
 
-                if (Object.keys(cup.items).length === 0) {
-                    ticket += `\nVacío`;
-                }
-            });
+            //                 if (Object.keys(cup.items).length === 0) {
+            //                     ticket += `\nVacío`;
+            //                 }
+            //             });
 
-            ticket += `\n====================================`;
-            ticket += `\nTOTAL GENERAL: $${orderTotal.toFixed(2)}`;
+            //             ticket += `\n====================================`;
+            //             ticket += `\nTOTAL GENERAL: $${orderTotal.toFixed(2)}`;
 
             orderTable.insertAdjacentHTML('afterbegin', `<tr>
                 <td colspan="2" style="width = 130px; text-align: left;"><b>Cliente: ${customerName}</b></td>
@@ -729,13 +726,16 @@ Cliente: ${customerName}
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        cups: allCups,
-                        total: orderTotal,
-                        ticket: ticket,
-                        customerName: customerName.trim(),
-                        storeId: 'puesto2'
+                        customer: customerName,
+                        store: "ubu-j",
+                        timestamp: timestamp,
+                        cups: cupsTOON(cups),
+                        subtotal: subtotal,
+                        discount: orderTotal - subtotal,// Convert cups array to JSON string
+                        total: orderTotal
                     }),
                 });
+                console.log("cups:", cups);
                 console.log("Response status:", response.status);
                 console.log("Response:", response);
                 const responseBody = await response.json();
@@ -755,6 +755,13 @@ Cliente: ${customerName}
             } catch (error) {
                 alert('Error submitting order. Please check if the server is running.');
             }
+        }
+        function cupsTOON(cups) {
+            return cups.map(cup => {
+                const items = Object.values(cup.items)
+                    .map(item => `${item.quantity} ${item.flavor} $${item.price * item.quantity}`).join('\n');
+                return `Vaso ${cup.cupNumber}\n${items}`;
+            }).join('\n');
         }
 
         // Start new order
